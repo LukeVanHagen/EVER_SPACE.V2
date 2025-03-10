@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apresentação: Arquitetura da Aplicação</title>
+
+  <!-- Importando o Reveal.js -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/reveal.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/theme/solarized.css" id="theme">
+
+  <style>
+    .reveal section {
+      text-align: center;
+    }
+
+    .content {
+      font-size: 1.2em;
+      line-height: 1.5em;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- A estrutura da apresentação -->
+  <div class="reveal">
+    <div class="slides">
+      
+      <!-- Slide 1: Título -->
+      <section>
+        <h1>Arquitetura da Aplicação</h1>
+        <p>Uma visão geral sobre a aplicação utilizando Node.js, MySQL, Redis, Docker e Nginx.</p>
+      </section>
+
+      <!-- Slide 2: Estrutura do Projeto -->
+      <section>
+        <h2>Estrutura do Projeto</h2>
+        <pre class="content">
+/aplicação
+  /backend  
+  /frontend
+  docker-compose.yml
+        </pre>
+      </section>
+
+      <!-- Slide 3: Backend - Dockerfile -->
+      <section>
+        <h2>Backend - Dockerfile</h2>
+        <p>Este arquivo define o ambiente para a aplicação backend, utilizando a imagem do Node.js.</p>
+        <pre class="content">
+# Usando a imagem oficial do Node.js
+FROM node:16
+
+WORKDIR /app
+
+# Copiar os arquivos de dependências para instalar
+COPY package*.json ./
+
+# Instalar as dependências
+RUN npm install
+
+# Copiar o restante do código
+COPY . .
+
+# Expor a porta que o app vai rodar
+EXPOSE 8080
+
+# Comando para iniciar o servidor Node.js
+CMD ["node", "index.js"]
+        </pre>
+      </section>
+
+      <!-- Slide 4: Backend - db.js -->
+      <section>
+        <h2>Backend - db.js</h2>
+        <p>Conexão com o MySQL e Redis utilizando as dependências 'mysql2' e 'redis'.</p>
+        <pre class="content">
+const mysql = require('mysql2/promise');
+const redis = require('redis');
+
+// Conexão com MySQL
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
+
+// Conexão com o Redis
+const redisClient = redis.createClient({
+  host: 'redis', // Nome do serviço Redis no docker-compose
+  port: 6379,
+});
+
+module.exports = { pool, redisClient };
+        </pre>
+      </section>
+
+      <!-- Slide 5: Backend - index.js -->
+      <section>
+        <h2>Backend - index.js</h2>
+        <p>O arquivo principal do servidor Express, que implementa rotas para cadastro de usuários e gerenciamento de acesso.</p>
+        <pre class="content">
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { pool, redisClient } = require('./db');
+
+const app = express();
+app.use(express.json());
+app.use(cors());
+
+const PORT = 8080;
+
+// Rota para cadastrar usuários
+app.post('/usuarios', async (req, res) => {
+    const { nome, email, senha, rfid } = req.body;
+    try {
+        await pool.query('INSERT INTO usuarios (nome, email, senha, rfid) VALUES (?, ?, ?, ?)', [nome, email, senha, rfid]);
+        res.status(201).send({ message: 'Usuário cadastrado com sucesso!' });
+    } catch (error) {
+        res.status(500).send({ error: error.message });
+    }
+});
+
+// Rota para verificar o acesso via RFID
+app.post('/acesso', async (req, res) => {
+    const { rfid } = req.body;
+    try {
+        redisClient.get(rfid, async (err, reply) => {
+            if (reply) {
+                return res.status(200).send({ message: 'Acesso permitido (Cache)' });
+            } else {
+                const [rows] = await pool.query('SELECT * FROM usuarios WHERE rfid = ?', [rfid]);
+                if (rows.length > 0) {
+                    redisClient.setex(rfid, 3600, 'Acesso permitido');
+                    res.status(200).send({ message: 'Acesso permitido' });
+                } else {
+                    res.status(403).send({ message: 'Acesso negado' });
+                }
+            }
+        });
+    } catch (error) {
+        res.status(500).send({ error: error.message });
+    }
+});
+
+// Rota para listar usuários
+app.get('/usuarios', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT id, nome, email FROM usuarios');
+        res.send(rows);
+    } catch (error) {
+        res.status(500).send({ error: error.message });
+    }
+});
+
+app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+        </pre>
+      </section>
+
+      <!-- Slide 6: Frontend - HTML -->
+      <section>
+        <h2>Frontend - HTML</h2>
+        <p>A estrutura do frontend consiste em um formulário para cadastro de usuários e verificação de acesso via RFID.</p>
+        <pre class="content">
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro de Usuários</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <!-- Estrutura do Frontend -->
+    <div>
+      <button id="tabCadastro" onclick="mostrarCadastro()">Cadastro de Usuários</button>
+      <button id="tabAcesso" onclick="mostrarAcesso()">Gerenciar Acesso</button>
+    </div>
+    <div id="cadastro">
+      <h1>Cadastro de Usuários</h1>
+      <form id="userForm">
+        <input type="text" id="nome" placeholder="Nome" required>
+        <input type="email" id="email" placeholder="E-mail" required>
+        <input type="password" id="senha" placeholder="Senha" required>
+        <input type="text" id="rfid" placeholder="Código RFID" required>
+        <button type="submit">Cadastrar</button>
+      </form>
+    </div>
+  </body>
+</html>
+        </pre>
+      </section>
+
+      <!-- Slide 7: Frontend - JavaScript -->
+      <section>
+        <h2>Frontend - JavaScript</h2>
+        <p>O script que gerencia o envio de dados para o backend e a verificação de acesso.</p>
+        <pre class="content">
+async function verificarAcesso() {
+    const rfidAcesso = document.getElementById("rfidAcesso").value;
+    const response = await fetch("http://localhost:8080/acesso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rfid: rfidAcesso })
+    });
+    const result = await response.json();
+    const mensagemAcesso = document.getElementById("mensagemAcesso");
+
+    if (response.status === 200) {
+        mensagemAcesso.textContent = result.message;
+        mensagemAcesso.style.color = "green";
+    } else {
+        mensagemAcesso.textContent = result.message;
+        mensagemAcesso.style.color = "red";
+    }
+}
+        </pre>
+      </section>
+
+      <!-- Slide 8: Docker Compose -->
+      <section>
+        <h2>Docker Compose</h2>
+        <p>Definição dos containers necessários para a aplicação: Backend, MySQL, Redis e Nginx.</p>
+        <pre class="content">
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: db
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: meubanco
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - backend/.env
+
+  db:
+    image: mysql:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: meubanco
+    ports:
+      - "3306:3306"
+
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+
+  frontend:
+    image: nginx:latest
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+      - ./frontend/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+        </pre>
+      </section>
+
+      <!-- Slide 9: Conclusão -->
+      <section>
+        <h2>Conclusão</h2>
+        <p>Essa arquitetura de aplicação é robusta e permite fácil escalabilidade com Docker e integração de vários serviços como MySQL, Redis, e Nginx.</p>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- Scripts do Reveal.js -->
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/reveal.min.js"></script>
+  <script>
+    // Inicializando o Reveal.js
+    Reveal.initialize({
+      width: "100%",
+      height: "100%",
+      margin: 0.1,
+      minScale: 0.1,
+      transition: 'fade',
+    });
+  </script>
+</body>
+</html>
