@@ -12,24 +12,34 @@ function mostrarAcesso() {
     document.getElementById("tabAcesso").disabled = true;
 }
 
-async function verificarAcesso() {
-    const rfidAcesso = document.getElementById("rfidAcesso").value;
+document.getElementById("rfidAcesso").addEventListener("input", async function () {
+    if (this.value.length >= 10) { // Ajuste conforme o tamanho do RFID
+        await verificarAcesso(this.value);
+        this.value = ""; // Limpa o campo após leitura
+    }
+});
+
+async function verificarAcesso(rfid) {
+    const mensagemAcesso = document.getElementById("mensagemAcesso");
+
     const response = await fetch("http://localhost:8080/acesso", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rfid: rfidAcesso })
+        body: JSON.stringify({ rfid })
     });
+
     const result = await response.json();
-    const mensagemAcesso = document.getElementById("mensagemAcesso");
-    
-    if (response.status === 200) {
-        mensagemAcesso.textContent = result.message;
-        mensagemAcesso.style.color = "green";
-    } else {
-        mensagemAcesso.textContent = result.message;
-        mensagemAcesso.style.color = "red";
-    }
+
+    mensagemAcesso.textContent = result.message;
+    mensagemAcesso.className = response.status === 200 ? "sucesso" : "erro";
+    mensagemAcesso.style.opacity = "1";
+
+    // Oculta a mensagem após 3 segundos com efeito de fade-out
+    setTimeout(() => {
+        mensagemAcesso.style.opacity = "0";
+    }, 3000);
 }
+
 
 document.getElementById("userForm").addEventListener("submit", async function(event) {
     event.preventDefault();
@@ -46,6 +56,9 @@ document.getElementById("userForm").addEventListener("submit", async function(ev
     });
 
     document.getElementById("userForm").reset();
+    
+    // Atualiza a lista de usuários automaticamente
+    carregarUsuarios();
 });
 
 // Função para carregar os usuários cadastrados do backend

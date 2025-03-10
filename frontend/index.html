@@ -133,6 +133,43 @@ tr:hover {
 h1, h2 {
     animation: neonGlow 1.5s infinite alternate;
 }
+@keyframes flicker {
+            0% { text-shadow: 0 0 5px #fad889, 0 0 15px #fbbe9a; }
+            50% { text-shadow: 0 0 10px #fad889, 0 0 25px #fbbe9a; }
+            100% { text-shadow: 0 0 5px #fad889, 0 0 15px #fbbe9a; }
+        }
+
+        
+#mensagemAcesso {
+    margin-top: 20px;
+    font-size: 20px;
+    font-weight: bold;
+    display: inline-block;
+    padding: 10px;
+    border-radius: 5px;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+}
+
+.sucesso {
+    color: #0f0;
+    text-shadow: 0 0 10px #0f0, 0 0 20px #0f0;
+    animation: glow 1.5s infinite alternate;
+}
+.erro {
+    color: red;
+    text-shadow: 0 0 10px red, 0 0 20px red;
+}
+@keyframes glow {
+    0% { text-shadow: 0 0 10px #0f0, 0 0 20px #0f0; }
+    50% { text-shadow: 0 0 20px #0f0, 0 0 40px #0f0; }
+    100% { text-shadow: 0 0 10px #0f0, 0 0 20px #0f0; }
+}
+
+
+
+        
     </style>
     <div>
         <button id="tabCadastro" onclick="mostrarCadastro()">Cadastro de Usuários</button>
@@ -161,11 +198,13 @@ h1, h2 {
         </table>
     </div>
 
-    <div id="acesso" style="display: none;">
+    <div id="acesso" style="display: none; display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column;">
         <h1>Gerenciamento de Acesso</h1>
-        <input type="text" id="rfidAcesso" placeholder="Insira seu código RFID">
-        <button onclick="verificarAcesso()">Verificar Acesso</button>
-        <span id="mensagemAcesso"></span>
+        <div style="display: flex; justify-content: center; align-items: center;">
+            <input type="text" id="rfidAcesso" placeholder="Insira seu código RFID" style="padding: 10px; margin-right: 10px;">
+            <button onclick="verificarAcesso()" style="padding: 10px;">Verificar Acesso</button>
+        </div>
+        <div id="mensagemAcesso" style="margin-top: 20px; text-align: center;"></div>
     </div>
 
     <script src="script.js"></script>
