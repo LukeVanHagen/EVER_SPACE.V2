@@ -1,5 +1,7 @@
 Apresentação da Aplicação
+
 Introdução
+
 Este projeto tem como objetivo implementar uma aplicação web que gerencia o cadastro de usuários e o controle de acesso via RFID. A aplicação é composta por três componentes principais:
 
 Backend (Node.js + Express): Fornece a API para interagir com o banco de dados e realizar operações CRUD.
