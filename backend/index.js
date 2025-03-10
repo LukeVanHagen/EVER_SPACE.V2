@@ -27,7 +27,7 @@ app.post('/acesso', async (req, res) => {
         // Verificar no cache Redis
         redisClient.get(rfid, async (err, reply) => {
             if (reply) {
-                return res.status(200).send({ message: 'Acesso permitido (Cache)' });
+                return res.status(200).send({ message: 'Acesso permitido (Redis:Cache)' });
             } else {
                 const [rows] = await pool.query('SELECT * FROM usuarios WHERE rfid = ?', [rfid]);
                 if (rows.length > 0) {
